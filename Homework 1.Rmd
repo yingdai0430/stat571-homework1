@@ -1,5 +1,5 @@
 ---
-title: " Modern Data Mining, HW 1"
+title: " Modern Data Mining, Case2 Ying Dai"
 author:
 - Group Member Ying Dai
 date: 'Due: 11:59PM,  February 7, 2021'
@@ -30,8 +30,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
-# check if you have ISLR package, if not, install it
-if(!require('pacman')) {install.packages('pacman')}
+
 pacman::p_load(ISLR, readxl, tidyverse, magrittr, dplyr, ggplot2, plotly, formattable)
 ```
 
@@ -39,24 +38,8 @@ pacman::p_load(ISLR, readxl, tidyverse, magrittr, dplyr, ggplot2, plotly, format
 \pagebreak
 ---
 
-## Case study 1 audience size
-## Data preparation
-```{r, echo=TRUE, message=FALSE, warning=FALSE}
-# i. We need to clean and select only the variables of interest. 
-setwd("/Users/yingdai/Desktop/UPenn/Plan of study/STAT571/Homework/Home work 1/data")
-audience <- read.csv("Survey_results_final.csv", header=T, stringsAsFactors = FALSE) 
-
-names(audience)
-
-# Select only the variables Age, Gender, Education Level, Household Income in 2013, Sirius Listener?, Wharton Listener? and Time used to finish the survey. Change the variable names to be "age", "gender", "education", "income", "sirius", "wharton", "worktime".
-
-audience1 <- audience %>% select(Answer.Age, Answer.Gender, Answer.Education, Answer.HouseHoldIncome, Answer.Sirius.Radio, Answer.Wharton.Radio, WorkTimeInSeconds) %>% rename(age = Answer.Age, gender = Answer.Gender, education = Answer.Education, income = Answer.HouseHoldIncome, sirius = Answer.Sirius.Radio, wharton = Answer.Wharton.Radio, worktime = WorkTimeInSeconds)
-
-```
-
-
-## Case study 2 women in science
-## Data preparation
+### Case study 2 women in science
+## 3.1 Data preparation
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # 1. Understand and clean the data
 # i. read the data
@@ -64,89 +47,266 @@ setwd("/Users/yingdai/Desktop/UPenn/Plan of study/STAT571/Homework/Home work 1/d
 Casestudy2 <- read_excel("WomenData_06_16.xlsx")
 
 # ii. rename variables and set natures properly
-Casestudy2 %>%rename(Field = "Field and sex",
+Casestudy2 %<>%rename(Field = "Field and sex",
           Number = "Degrees Awarded") %>%
    mutate(Field = as.factor(Field),
           Degree = as.factor(Degree),
           Sex = as.factor(Sex),
-          Year = as.factor(Year),
-          SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E"))
+          Year = as.factor(Year))
+
 str(Casestudy2)
 
+# iii. look for missing values & 2. Brief description of the dataset
+skimr::skim(Casestudy2) 
+```
 
-# iii. look for missing values
-skimr::skim(Casestudy2) # no missing values were found
+Brief description of the dataset: There is no missing values in this dataset. There are ten fields, three types of degrees, and 11 year's statistics in this dataset.
 
 
-# 2. brief summary of data
-summary(Casestudy2)
 
-# 2.1 by degree and sex
-x <- Casestudy2 %>% group_by(Field, Sex) %>%
+## 3.2 BS degrees in 2015
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# BS degrees in 2015
+# 1. Plot of Male vs female in SE and Non-SE field
+Casestudy2 %>%
+  filter(Year == 2015, Degree == "BS") %>%
+  mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
+  group_by(SE, Sex) %>%
+  summarise(SE_number = sum(Number)) %>%
+  ggplot(aes(x = SE, y = SE_number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.y = element_text(angle = 60)) +
+  ggtitle("BS degrees granted by S&E vs non-S&E by gender")
+
+# 2. Plot of male vs female in each field 
+Casestudy2 %>%
+  filter(Year == 2015, Degree == "BS") %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  ggtitle("BS degrees granted across fields by degree and gender")
+
+# 3. Table summary of number of male and female in each field in year 2015
+Casestudy2 %>%
+  filter(Year == 2015, Degree == "BS") %>%
+  group_by(Field, Sex) %>%
   pivot_wider(names_from = Sex, values_from = "Number") %>%
   summarise(Male = sum(Male),
             Female = sum(Female))
 
-Casestudy2 %>%
+```
+From the above first plot we can see that in the year 2015, the total number of males who own a BS degree in science and engineering (SE) field is slightly higher than the number of women. However, when looking at the total number of BS degrees in each field (show in the second plot and the above table), not all fields have a higher male number. Specifically, five SE fields have a higher male total number, while the remaining four SE fields have a higher female total number.
+ 
+
+Take a closer look at SE fields with higher male numbers 
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+Casestudy2 %>% filter(Year == 2015, Field %in% 
+                        c("Computer sciences", "Mathematics and statistics", "Earth, atmospheric, and ocean sciences", "Engineering", "Physical sciences")) %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) + 
+  geom_boxplot() +
+  ylab("Number") +
+  ggtitle("Degrees granted in 2015 with higher male numbers") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  theme()
+
+```
+
+The above boxplot shows that among SE fields with a higher male number in the year 2015, engineering field has the highest difference between male and female number, followed by computer science.
+
+## 3.3 Describe number of people by type of degree, field, and sex in 2015
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# by degree and sex
+Casestudy2 %>%filter(Year == 2015) %>%
+  ggplot(aes(x = Degree, y = Number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme() +
+  ggtitle("Degrees granted in 2015 across fields by degree and sex") 
+
+#  by fields and sex
+Casestudy2 %>%filter(Year == 2015) %>%
   ggplot(aes(x = Field, y = Number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge")+
-  theme() +
-  ggtitle("Degrees granted across fields by degree and gender") 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  ggtitle("Degrees granted in 2015 across fields by fields and sex") 
 
-############## Jonathon's plot approach
+# by SE vs Non-SE and sex
+Casestudy2 %>%filter(Year == 2015) %>%
+  mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
+  group_by(Degree, SE, Sex) %>%
+  summarise(SE_number = sum(Number)) %>%
+  ggplot(aes(x = SE, y = SE_number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_grid(Degree~., scales = "free_y")
+  theme(axis.text.y = element_text(angle = 60)) +
+  ggtitle("Degrees granted in 2015 by S&E vs non-S&E by sex")
+
+```
+The above three plots show that gender has an effect on different types of degrees. Specifically, more women had a degree in non-SE fields, while more men had a degree in SE fields across BS, MS, and PhD degree.
+
+
+## 3.4 Bring all variables
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Do the number of degrees change by gender, field, and time?
+# Table summary by degrees and gender
+x <- Casestudy2 %>%
+  pivot_wider(names_from = Sex, values_from = "Number") %>%
+  group_by(Degree) %>%
+  summarize(Male = sum(Male),
+            Female = sum(Female))
+
 x <- x %>%
   mutate(More = x$Male > x$Female)
+
 x$More <- as.character(x$More)
 x$More <- str_replace(x$More, 'FALSE', 'Female')
 x$More <- str_replace(x$More, 'TRUE','Male')
 x$More <- as.factor(x$More)
 
 formattable(x, align = c("l"),
-            list(`Deegree` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")),
+            list(`Degree` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")),
                  `Male` = color_tile("white", "green"),
                  `Female` = color_tile("white","red"),
-                 `More` = color_tile("red","green")))
+                 `More` = color_tile("green","red")))
+```
 
-# by year and sex
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Table summary by field and gender
+x <- Casestudy2 %>%
+  pivot_wider(names_from = Sex, values_from = "Number") %>%
+  group_by(Field) %>%
+  summarize(Male = sum(Male),
+            Female = sum(Female))
+
+x <- x %>%
+  mutate(More = x$Male > x$Female)
+
+x$More <- as.character(x$More)
+x$More <- str_replace(x$More, 'FALSE', 'Female')
+x$More <- str_replace(x$More, 'TRUE','Male')
+x$More <- as.factor(x$More)
+
+formattable(x, align = c("l"),
+            list(`Field` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")),
+                 `Male` = color_tile("white", "green"),
+                 `Female` = color_tile("white","red"),
+                 `More` = color_tile("green","red")))
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Table summary by year and gender
+x <- Casestudy2 %>%
+  pivot_wider(names_from = Sex, values_from = "Number") %>%
+  group_by(Year) %>%
+  summarize(Male = sum(Male),
+            Female = sum(Female))
+
+x <- x %>%
+  mutate(More = x$Male > x$Female)
+
+x$More <- as.character(x$More)
+x$More <- str_replace(x$More, 'FALSE', 'Female')
+x$More <- str_replace(x$More, 'TRUE','Male')
+x$More <- as.factor(x$More)
+
+formattable(x, align = c("l"),
+            list(`Year` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")),
+                 `Male` = color_tile("white", "green"),
+                 `Female` = color_tile("white","red"),
+                 `More` = color_tile("green","red")))
+```
+
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# plot type of degrees by sex and SE/non-SE across years
+Casestudy2 %>%
+  mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
+  group_by(SE, Sex, Year, Degree) %>%
+  summarise(SE_number = sum(Number)) %>%
+  ggplot(aes(x = Year, y = SE_number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_grid(SE~Degree, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  ggtitle("Degrees granted proportion by sex across degree and SE")
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# plot degree numbers by year and sex regardless of fields
 Casestudy2 %>%
   ggplot(aes(x = Year, y = Number, fill = Sex)) +
   geom_bar(stat = "identity", position = "dodge") +
-  facet_grid(Field~., scales = "free_y") +
-  theme() +
-  ggtitle("Degrees granted across fields by degree and gender") 
+   facet_grid(Degree~., scales = "free_y")
+  ggtitle("Degrees granted proportion by year and SE")
   
+# plot by female proportion in SE/non-SE across years
+Casestudy2 %>%
+  mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
+  group_by(SE, Sex, Year) %>%
+  summarise(SE_number = sum(Number)) %>%
+  group_by(SE, Year) %>%
+  mutate(ratio = SE_number / sum(SE_number)) %>%
+  filter(Sex == "Female") %>%
+  ggplot(aes(x = Year, y = ratio, color = SE)) +
+  geom_point() + geom_line() +
+  ggtitle("Female proportion in SE/non-SE across year")
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Plot of degree numbers by field and sex
+Casestudy2 %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  ggtitle("Degrees granted across fields by degree and gender")
 
 ```
 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
-# BS degrees in 2015
 
-
-
+Casestudy2 %>% filter(Field %in% 
+                        c("Computer sciences", "Engineering", "Mathematics and statistics", "Physical sciences")) %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) + 
+  geom_boxplot() +
+  ylab("Number") +
+  ggtitle("Degrees granted with higher male numbers") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  theme()
 
 ```
+The above tables and plots show that overall, more women got a degree than men across time. However, the proportion of women in non-SE fields is consistently higher than the proportion of women in SE fields across years, suggesting that women tend to enter non-SE fields across time. Further, even within the SE fields, the effect of gender on degree number still exists. Specifically, more women pursued a degree in agriculture, biology, psychology, and social sciences; and engineering and computer science seem to be the two fields with women mostly underrepresented.
 
 
+## 3.3 Women in data science
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 
+Casestudy2 %>%
+  filter(Field %in% c("Computer sciences", "Mathematics and statistics")) %>%
+  mutate(SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E")) %>%
+  group_by(SE, Sex, Year, Degree) %>%
+  summarise(SE_number = sum(Number)) %>%
+  group_by(Sex, Year, Degree) %>%
+  ggplot(aes(x = Year, y = SE_number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_grid(SE~Degree, scales = "free_y") +
+  ggtitle("Degrees granted proportion by sex in data science") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  theme()
 
-## R Markdown
+Casestudy2 %>% filter(Field %in% 
+                        c("Computer sciences", "Mathematics and statistics")) %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) + 
+  geom_boxplot() +
+  ylab("Number") +
+  ggtitle("Degrees granted with higher male numbers") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+  theme()
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
+The above plots show that women consistently have lower proportions (i.e. underrepresented) in data science across years. Within data science subgroup, computer science has a higher gender gap.
 
-## Including Plots
+## 3.6 Final conclusion
+Based on this dataset, there is a consistently lower proportion of women in science-related fields across years. However, it remains unclear which fields consisted of the non-SE related fields, or why the above nine fields were chosen to represent "Science-related" fields. Other fields, such as chemical sciences and medical and health sciences, among others, belong to science as well. Future studies could improve by asking participants to clarify their degree fields in the data collection process.   
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
