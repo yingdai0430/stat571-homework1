@@ -22,22 +22,114 @@ output:
 urlcolor: blue
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, results = "hide", fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, readxl, tidyverse, magrittr, dplyr, ggplot2)
+pacman::p_load(ISLR, readxl, tidyverse, magrittr, dplyr, ggplot2, plotly, formattable)
 ```
 
 
 \pagebreak
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Case study 1 audience size
+## Data preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# i. We need to clean and select only the variables of interest. 
+setwd("/Users/yingdai/Desktop/UPenn/Plan of study/STAT571/Homework/Home work 1/data")
+audience <- read.csv("Survey_results_final.csv", header=T, stringsAsFactors = FALSE) 
+
+names(audience)
+
+# Select only the variables Age, Gender, Education Level, Household Income in 2013, Sirius Listener?, Wharton Listener? and Time used to finish the survey. Change the variable names to be "age", "gender", "education", "income", "sirius", "wharton", "worktime".
+
+audience1 <- audience %>% select(Answer.Age, Answer.Gender, Answer.Education, Answer.HouseHoldIncome, Answer.Sirius.Radio, Answer.Wharton.Radio, WorkTimeInSeconds) %>% rename(age = Answer.Age, gender = Answer.Gender, education = Answer.Education, income = Answer.HouseHoldIncome, sirius = Answer.Sirius.Radio, wharton = Answer.Wharton.Radio, worktime = WorkTimeInSeconds)
+
 ```
+
+
+## Case study 2 women in science
+## Data preparation
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# 1. Understand and clean the data
+# i. read the data
+setwd("/Users/yingdai/Desktop/UPenn/Plan of study/STAT571/Homework/Home work 1/data")
+Casestudy2 <- read_excel("WomenData_06_16.xlsx")
+
+# ii. rename variables and set natures properly
+Casestudy2 %>%rename(Field = "Field and sex",
+          Number = "Degrees Awarded") %>%
+   mutate(Field = as.factor(Field),
+          Degree = as.factor(Degree),
+          Sex = as.factor(Sex),
+          Year = as.factor(Year),
+          SE = ifelse(Field!="Non-S&E" , "S&E", "Non-S&E"))
+str(Casestudy2)
+
+
+# iii. look for missing values
+skimr::skim(Casestudy2) # no missing values were found
+
+
+# 2. brief summary of data
+summary(Casestudy2)
+
+# 2.1 by degree and sex
+x <- Casestudy2 %>% group_by(Field, Sex) %>%
+  pivot_wider(names_from = Sex, values_from = "Number") %>%
+  summarise(Male = sum(Male),
+            Female = sum(Female))
+
+Casestudy2 %>%
+  ggplot(aes(x = Field, y = Number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge")+
+  theme() +
+  ggtitle("Degrees granted across fields by degree and gender") 
+
+############## Jonathon's plot approach
+x <- x %>%
+  mutate(More = x$Male > x$Female)
+x$More <- as.character(x$More)
+x$More <- str_replace(x$More, 'FALSE', 'Female')
+x$More <- str_replace(x$More, 'TRUE','Male')
+x$More <- as.factor(x$More)
+
+formattable(x, align = c("l"),
+            list(`Deegree` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")),
+                 `Male` = color_tile("white", "green"),
+                 `Female` = color_tile("white","red"),
+                 `More` = color_tile("red","green")))
+
+# by year and sex
+Casestudy2 %>%
+  ggplot(aes(x = Year, y = Number, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_grid(Field~., scales = "free_y") +
+  theme() +
+  ggtitle("Degrees granted across fields by degree and gender") 
+  
+
+
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# BS degrees in 2015
+
+
+
+
+```
+
+
+
 
 ## R Markdown
 
